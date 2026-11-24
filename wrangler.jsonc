@@ -35,7 +35,7 @@
     "directory": "apps/web/dist",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/*", "!/assets/*", "!/app-version.json", "!/browsers/*", "!/globe.svg", "!/logos/*", "!/lucide/*", "!/iconoir/*", "!/screenshots/*", "!/shortcuts/*", "!/ember-icon.png", "!/assistant-avatar.svg", "!/robots.txt"]
+    "run_worker_first": ["/*", "!/assets/*", "!/app-version.json", "!/browsers/*", "!/globe.svg", "!/logos/*", "!/lucide/*", "!/iconoir/*", "!/emojibase/*", "!/screenshots/*", "!/shortcuts/*", "!/ember-icon.png", "!/assistant-avatar.svg", "!/robots.txt"]
   },
 
   // One ChatRoom object per room, which owns its sockets, presence and (by default) its messages,
@@ -90,5 +90,5 @@
   // `pnpm run deploy` binds it only for "d1", making it first if the account has none of this name, and
   // applying apps/worker/migrations/ to it. `wrangler dev` keeps one on this machine, which
   // `pnpm --filter @ember/worker d1:migrate:local` migrates.
-  "d1_databases": [{ "binding": "DB", "database_name": "ember", "migrations_dir": "apps/worker/migrations","database_id": "9a173cfb-2480-43a2-a647-ac580527736c" }]
+  "d1_databases": [{ "binding": "DB", "database_name": "ember","database_id": "9a173cfb-2480-43a2-a647-ac580527736c", "migrations_dir": "apps/worker/migrations" }]
 }

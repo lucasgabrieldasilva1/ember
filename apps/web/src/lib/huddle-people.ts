@@ -26,8 +26,12 @@ function peopleListed(names: string[], count: number): string {
  */
 export const huddledWith = (room: DirectRoom, meId: UserId, joinsNone: (user: User) => boolean): User[] => room.members.filter((member) => member.id !== meId && !joinsNone(member));
 
-/** Whether a room has huddles where they're on: every shared room, and a direct message with someone to huddle with. */
-export const hasHuddles = (room: Room, meId: UserId, joinsNone: (user: User) => boolean): boolean => room.kind !== "direct" || huddledWith(room, meId, joinsNone).length > 0;
+/**
+ * Whether a room has huddles where they're on: every shared room whose settings allow them, and a
+ * direct message with someone to huddle with.
+ */
+export const hasHuddles = (room: Room, meId: UserId, joinsNone: (user: User) => boolean): boolean =>
+  room.kind === "direct" ? huddledWith(room, meId, joinsNone).length > 0 : room.huddles !== false;
 
 /**
  * Who the person `meId` signs in can invite into a huddle they're in, of the people in its room
@@ -84,4 +88,42 @@ export function inItsHuddle(others: string[], count: number, you: boolean): stri
   if (you && others.length === count) return inTheHuddle(others);
   const [named, people] = you ? [[], count + 1] : [others, count];
   return `${peopleListed(named, people)} ${people === 1 ? "is" : "are"} in the huddle`;
+}
+
+/**
+ * Who was in a huddle that's over, for anyone in its room, by the names of the others who were in it and
+ * whether they were themselves: "Sam and Priya were in the huddle", "Sam and you were in the huddle",
+ * "Only you were in the huddle", and past three others, "Sam, Priya, Leo, and 2 others were in the huddle".
+ */
+export function wereInTheHuddle(others: string[], you: boolean): string {
+  if (others.length === 0) return you ? "Only you were in the huddle" : "Nobody was in the huddle";
+  if (others.length === 1 && !you) return `${firstName(others[0]!)} was in the huddle`;
+  const everyone = you && others.length <= MAX_NAMED ? toSentence([...others.map(firstName), "you"]) : peopleListed(others, others.length);
+  return `${everyone} were in the huddle`;
+}
+
+/**
+ * Who was in a room's huddle that's over, for anyone in the room, where only their ids are known:
+ * `others` are the names known of the `count` people who were in it besides them, and `you` says they
+ * were in it too, when it's as `wereInTheHuddle` says it. Whoever has no name known is counted, "Sam and
+ * 2 others were in the huddle", and with them in it, everyone is: "3 people were in the huddle".
+ */
+export function wereInItsHuddle(others: string[], count: number, you: boolean): string {
+  if (others.length === count) return wereInTheHuddle(others, you);
+  const [named, people] = you ? [[], count + 1] : [others, count];
+  return `${peopleListed(named, people)} ${people === 1 ? "was" : "were"} in the huddle`;
+}
+
+const counted = (count: number, one: string) => (count === 1 ? `1 ${one}` : `${count} ${one}s`);
+
+/**
+ * How long a huddle went on, from when it started to when it ended, in whole minutes, as its message
+ * says it of one that's over: "less than a minute", "24 minutes", "1 hour and 5 minutes".
+ */
+export function huddleLasted(startedAt: string, endedAt: string): string {
+  const minutes = Math.floor((Date.parse(endedAt) - Date.parse(startedAt)) / 60_000);
+  if (minutes < 1) return "less than a minute";
+  const [hours, left] = [Math.floor(minutes / 60), minutes % 60];
+  if (hours === 0) return counted(left, "minute");
+  return left === 0 ? counted(hours, "hour") : `${counted(hours, "hour")} and ${counted(left, "minute")}`;
 }
