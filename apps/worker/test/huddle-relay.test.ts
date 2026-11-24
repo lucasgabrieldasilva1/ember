@@ -1,11 +1,11 @@
 import type { RoomId } from "@ember/protocol";
-import { RELAY_TTL_S, type HuddlePerson } from "@ember/protocol/huddles";
+import { HuddleCloseCode, RELAY_TTL_S, type HuddlePerson } from "@ember/protocol/huddles";
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/env";
 import { relayServers, relayServersIn } from "../src/huddles/relay";
 import { giveRelay, huddlesOn, joinHuddle, OTHER_RELAY, publishMicrophone, RELAY, relayServersGiven, relayServersMade, takeRelayAway, welcomed } from "./huddle-support";
-import { connect, freshDeploy, freshRoom, post, signIn, type Session } from "./support";
+import { api, connect, freshDeploy, freshRoom, post, signIn, type Session } from "./support";
 
 // Huddles' relay: what a room makes of the servers Cloudflare's TURN service answers, and the welcome
 // it gives a tab with them, where a stand-in answers for Cloudflare (./huddle-support.ts). Setting the
@@ -133,7 +133,7 @@ describe("A huddle's relay", () => {
     const grace = await signIn("Grace");
 
     const adas = await joinHuddle(room, ada);
-    expect(await adas.next("huddle.welcome")).toEqual({ type: "huddle.welcome", you: ada.user, people: [person(ada)], startedAt: expect.any(String) as string, iceServers: relayServersGiven(2) });
+    expect(await adas.next("huddle.welcome")).toEqual({ type: "huddle.welcome", you: ada.user, people: [person(ada)], startedAt: expect.any(String) as string, messageId: expect.any(String) as string, iceServers: relayServersGiven(2) });
     expect((await welcomeOf(room, grace)).iceServers).toEqual(relayServersGiven(3));
     // Each tab's were made for it, to last a day, by the TURN key huddles were given.
     expect(sfu.relayAsked).toEqual([forATab(), forATab(), forATab()]);
@@ -163,6 +163,16 @@ describe("A huddle's relay", () => {
     expect(sfu.relayAsked).toHaveLength(4);
   });
 
+  it("has Cloudflare make no servers for a tab that joins in a room whose settings don't allow huddles", async () => {
+    const { ada, sfu } = await relayOn();
+    const room = await freshRoom("not-here");
+    expect((await api(`/api/rooms/${room}`, { method: "PATCH", headers: { Cookie: ada.cookie }, body: JSON.stringify({ huddles: false }) })).status).toBe(200);
+    const made = sfu.relayAsked.length;
+
+    expect(await (await joinHuddle(room, ada)).closed).toMatchObject({ code: HuddleCloseCode.Off });
+    expect(sfu.relayAsked).toHaveLength(made);
+  });
+
   it("lets a tab in without a relay when Cloudflare doesn't make its servers, logging its status and never the key", async () => {
     const { ada, sfu } = await relayOn();
     const room = await freshRoom("unrelayed");
@@ -178,7 +188,7 @@ describe("A huddle's relay", () => {
     ];
     for (const answer of answers) {
       sfu.answerInstead(RELAY_SERVERS, answer);
-      expect(await welcomeOf(room, ada)).toEqual({ type: "huddle.welcome", you: ada.user, people: [person(ada)], startedAt: expect.any(String) as string });
+      expect(await welcomeOf(room, ada)).toEqual({ type: "huddle.welcome", you: ada.user, people: [person(ada)], startedAt: expect.any(String) as string, messageId: expect.any(String) as string });
     }
     expect(warned.mock.calls).toEqual([500, 401, 201, 201].map((status) => ["Cloudflare didn't give the relay's servers:", status]));
     expect(logged.mock.calls).toEqual([["Asking Cloudflare for the relay's servers failed:", "TypeError"]]);
